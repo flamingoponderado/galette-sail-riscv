@@ -1,0 +1,6 @@
+[submodule "deps/galette"]
+	path = deps/galette
+	url = https://github.com/flamingoponderado/galette.git
+[submodule "deps/sail-riscv"]
+	path = deps/sail-riscv
+	url = https://github.com/riscv/sail-riscv.git
