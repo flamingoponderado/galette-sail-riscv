@@ -1,0 +1,8 @@
+_build/
+_sailbuild/
+_galette92/
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
