@@ -98,7 +98,7 @@ Ltac closed t :=
 
 (** Hooks, to be redefined (with [Ltac ev_hook ::= ...]) by clients. *)
 Ltac ev_hook := fail.
-Ltac ev_case := fail.
+Ltac ev_case b := fail.
 Ltac ev_val_hook := fail.
 (** Simplify a register read [rd (regs s) r] (goal [rd (regs s) r = ?v]). *)
 Ltac ev_val :=
@@ -151,6 +151,17 @@ Ltac ev_case_bool b :=
       rewrite Eb; clear Eb; cbv iota
   end.
 
+(** A scrutinee containing a conditional [if c then _ else _] whose
+    condition [c] is decided by [bsolve]. *)
+Ltac ev_case_inner_if b :=
+  match b with
+  | context [if ?c then _ else _] =>
+      let Eb := fresh "Eb" in
+      first [ assert (Eb : c = false) by bsolve
+            | assert (Eb : c = true) by bsolve ];
+      rewrite Eb; clear Eb; cbv iota
+  end.
+
 Ltac ev_hnf P :=
   let P' := eval hnf in P in
   change P with P'.
@@ -174,8 +185,9 @@ Ltac ev_step :=
       | (let _ := _ in _) => cbv zeta
       | match ?b with _ => _ end =>
           first [ (closed b; ev_compute_scrutinee b; cbv iota)
-                | ev_case
                 | ev_case_bool b
+                | ev_case b
+                | ev_case_inner_if b
                 | ev_case_hyp b
                 | ev_hnf_match P ]
       | _ => first [ ev_hook | ev_unfold P | ev_hnf P ]

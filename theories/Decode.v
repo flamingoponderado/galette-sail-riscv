@@ -41,7 +41,11 @@ Definition reg5 (r : Z) : Prop := 0 <= r < 32.
 
 
 Ltac dec_finish :=
-  apply ev_ret_eq; repeat f_equal; apply bv_eq; zsolve.
+  apply ev_ret_eq;
+  repeat match goal with |- context [subrange_vec_dec ?w ?hi ?lo] =>
+    is_var w; let n := eval vm_compute in (hi - lo + 1) in
+    lazymatch n with 1 => idtac | 2 => idtac | 3 => idtac end; concretize_sub w hi lo end;
+  repeat f_equal; first [ apply bv_eq; zsolve | reflexivity | vm_compute; reflexivity ].
 
 Ltac dec_prove :=
   intros;

@@ -35,6 +35,24 @@ Proof.
   replace (range_subset _ _ base size) with true; [reflexivity|]. symmetry. bsolve.
 Qed.
 
+(** Replace a subrange of at most 3 bits of a symbolic word by its value,
+    when the hypotheses determine it. *)
+Ltac concretize_sub w hi lo :=
+  let n := eval vm_compute in (hi - lo + 1) in
+  let t := constr:(subrange_vec_dec w hi lo) in
+  let tryk k := replace t with (Z_to_bv _ k : mword (hi - lo + 1)) by (apply bv_eq; zsolve) in
+  lazymatch n with
+  | 1 => first [ tryk 0 | tryk 1 ]
+  | 2 => first [ tryk 0 | tryk 1 | tryk 2 | tryk 3 ]
+  | 3 => first [ tryk 0 | tryk 1 | tryk 2 | tryk 3 | tryk 4 | tryk 5 | tryk 6 | tryk 7 ]
+  end.
+
+Ltac ev_concretize b :=
+  match b with
+  | context [subrange_vec_dec ?w ?hi ?lo] =>
+      assert_fails (is_closed_term w); is_var w; concretize_sub w hi lo
+  end.
+
 Ltac ev_case_pma :=
   match goal with
   | |- context [matching_pma_region [ram_region ?b ?sz] (Physaddr ?x) ?w] =>
@@ -54,7 +72,7 @@ Ltac simpl_req :=
   | |- context [f_bitvector_64 ?rf ?r] => change (f_bitvector_64 rf r) with (rd rf (R_bitvector_64 r))
   end.
 
-Ltac ev_case ::= ev_case_pma.
+Ltac ev_case b ::= first [ ev_case_pma | ev_concretize b ].
 
 Section Fetch.
 
