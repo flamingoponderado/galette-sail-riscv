@@ -3,7 +3,7 @@
 From stdpp Require Import base bitvector.definitions.
 From SailStdpp Require Import Base ConcurrencyInterfaceV2.
 From Riscv Require Import rv64d_types rv64d riscv_extras.
-From GaletteSail Require Export SimALU Values3.
+From GaletteSail Require Export SimALU Values4.
 From Stdlib Require Import Lia.
 
 Local Open Scope Z_scope.
@@ -133,6 +133,17 @@ Proof.
   alu_sim (UTYPE (Z_to_bv 20 (zw i), Regidx (Z_to_bv 5 (zw d)), AUIPC)) d
     (add_vec (rd (regs s) PC) (utype_off (Z_to_bv 20 (zw i)))) decode_AUIPC exec_AUIPC.
   rewrite bvw_add_vec, bvw_utype_off. reflexivity.
+Qed.
+
+Lemma sim_DIV d r1 r2 :
+  mem_val (mem s) (rd (regs s) PC) 4 = zw (R.Encode (R.MulDiv (R.DIV (d, r1, r2)))) ->
+  SailSim base size (R.MulDiv (R.DIV (d, r1, r2))) s.
+Proof.
+  alu_sim (DIV (Regidx (Z_to_bv 5 (zw r2)), Regidx (Z_to_bv 5 (zw r1)), Regidx (Z_to_bv 5 (zw d)), false))
+    d (div_val (gpr (regs s) (zw r1)) (gpr (regs s) (zw r2))) decode_DIV exec_DIV.
+  unfold Galette.Base.bool_decide. destruct (Galette.Base.decide _) as [E|E].
+  - rewrite bvw_div_zero by exact E. reflexivity.
+  - rewrite bvw_div_nz by exact E. reflexivity.
 Qed.
 
 End Sims.
