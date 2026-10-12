@@ -189,3 +189,6 @@ Ltac ev_step :=
 
 (** Run [ev_step] on the first goal until it is solved or stuck. *)
 Ltac ev := repeat ev_step.
+
+Lemma ev_ret_eq {E A} (a a' : A) s : a = a' -> runX (Interface.Ret a : iM E A) s = Some (inl a', s).
+Proof. intros ->; reflexivity. Qed.

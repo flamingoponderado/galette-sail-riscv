@@ -203,7 +203,7 @@ Ltac lhs_index L :=
   | context [@bv_unsigned ?k' _ = _] => k'
   end.
 
-Ltac side_solve := first [ lia | reflexivity | vm_compute; reflexivity ].
+Ltac side_solve := first [ lia | reflexivity | vm_compute; reflexivity | vm_compute; intros; discriminate ].
 
 Ltac rw_bv_in H k t L :=
   let k' := lhs_index L in
@@ -235,6 +235,7 @@ Ltac bv_lemma t :=
   | @add_vec_int ?n ?x ?z => constr:(@add_vec_int_unsigned n x z)
   | @add_vec ?n ?x ?y => constr:(@add_vec_unsigned n x y)
   | @sub_vec ?n ?x ?y => constr:(@sub_vec_unsigned n x y)
+  | Z_to_bv ?n ?z => constr:(Z_to_bv_unsigned n z)
   | _ => bv_lemma_extra t
   end.
 
@@ -249,7 +250,7 @@ Ltac bv_to_Z :=
           let v := eval vm_compute in c in change c with v; cbv iota
       end
     | progress unfold is_aligned_vaddr, is_aligned_paddr, zopz0zI_u, zopz0zK_u, zopz0zIzJ_u,
-        zopz0zKzJ_u, zopz0zJzJzK, range_subset, __id, not, isRVC
+        zopz0zKzJ_u, zopz0zJzJzK, range_subset, __id, not, isRVC, regidx_bit_width
     | rewrite !uint_spec
     | rewrite !eq_vec_spec
     | rewrite !neq_vec_spec
