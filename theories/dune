@@ -1,0 +1,4 @@
+(rocq.theory
+ (name GaletteSail)
+ (theories Stdlib Riscv Galette SailStdpp stdpp)
+ (flags :standard -w -notation-overridden -w -ambiguous-paths))

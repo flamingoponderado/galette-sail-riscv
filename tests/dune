@@ -1,0 +1,3 @@
+(rocq.theory
+ (name GaletteSailTests)
+ (theories Stdlib GaletteSail Riscv SailStdpp stdpp))

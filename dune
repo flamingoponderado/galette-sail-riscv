@@ -1,0 +1,3 @@
+; deps/galette is a dune subproject (theory Galette); sail-riscv is only a source.
+(data_only_dirs _sailbuild _galette92)
+(subdir deps (data_only_dirs sail-riscv))

@@ -1,0 +1,5 @@
+; Rocq output of Sail for sail-riscv (see scripts/gen-sail.sh); not edited by hand.
+(rocq.theory
+ (name Riscv)
+ (theories Stdlib SailStdpp stdpp)
+ (flags :standard -w -all))
