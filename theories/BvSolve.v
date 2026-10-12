@@ -137,6 +137,63 @@ Ltac unfold_matchers_in H :=
   cbv zeta in H; rewrite ?if_true_else, ?if_false_else in H;
   cbn [orb andb negb] in H.
 
+Lemma lor_mul_pow2' a b n : 0 <= n -> 0 <= b < 2 ^ n -> Z.lor (Z.shiftl a n) b = a * 2 ^ n + b.
+Proof. intros. rewrite Z.shiftl_mul_pow2 by lia. apply lor_mul_pow2; lia. Qed.
+
+Lemma update_subrange_vec_dec_unsigned {n} (v : mword n) hi lo (x : mword (hi - (lo - 1))) :
+  0 <= lo -> lo <= hi + 1 -> hi < n ->
+  bv_unsigned (update_subrange_vec_dec v hi lo x) =
+  bv_unsigned v mod 2 ^ lo + bv_unsigned x * 2 ^ lo + (bv_unsigned v / 2 ^ (hi + 1)) * 2 ^ (hi + 1).
+Proof.
+  intros H1 H2 H3.
+  unfold update_subrange_vec_dec.
+  rewrite autocast_unsigned.
+  2:{ unfold SailStdpp.MachineWord.MachineWord.idx_Z, SailStdpp.MachineWord.MachineWord.Z_idx. lia. }
+  rewrite to_word_idx_unsigned.
+  unfold SailStdpp.MachineWord.MachineWord.update_slice, SailStdpp.MachineWord.MachineWord.slice.
+  rewrite bv_concat_unsigned by (unfold SailStdpp.MachineWord.MachineWord.Z_idx; lia).
+  rewrite bv_concat_unsigned by (unfold SailStdpp.MachineWord.MachineWord.Z_idx; lia).
+  rewrite !bv_extract_unsigned. unfold bv_wrap, bv_modulus in *.
+  destruct v as [V Hv], x as [X Hx]. simpl bv_unsigned.
+  pose proof (proj1 (bv_wf_in_range _ _) Hv) as Hv'. pose proof (proj1 (bv_wf_in_range _ _) Hx) as Hx'. unfold bv_modulus in Hv', Hx'.
+  unfold SailStdpp.MachineWord.MachineWord.Z_idx in *.
+  replace (Z.of_N (Z.to_N lo + Z.to_N (hi - (lo - 1)))) with (hi + 1) by lia.
+  replace (Z.of_N (Z.to_N n - Z.to_N (hi - (lo - 1)) - Z.to_N lo)) with (n - (hi + 1)) by lia.
+  replace (Z.of_N (Z.to_N lo)) with lo by lia. change (Z.of_N 0) with 0.
+  rewrite !Z2N.id in Hv', Hx' by lia.
+  rewrite Z.shiftr_0_r, !Z.shiftr_div_pow2 by lia.
+  assert (Hp : 2 ^ (hi + 1) = 2 ^ (hi - (lo - 1)) * 2 ^ lo) by (rewrite <- Z.pow_add_r by lia; f_equal; lia).
+  assert (Hm : 0 <= V mod 2 ^ lo < 2 ^ lo) by (apply Z.mod_pos_bound; lia).
+  assert (0 < 2 ^ lo) by (apply Z.pow_pos_nonneg; lia).
+  assert (0 < 2 ^ (hi - (lo - 1))) by (apply Z.pow_pos_nonneg; lia).
+  assert (0 < 2 ^ (hi + 1)) by (apply Z.pow_pos_nonneg; lia).
+  rewrite (lor_mul_pow2' X) by lia.
+  assert (Hxl : X * 2 ^ lo <= (2 ^ (hi - (lo - 1)) - 1) * 2 ^ lo).
+  { apply Z.mul_le_mono_nonneg_r. lia. lia. }
+  assert (0 <= X * 2 ^ lo) by (apply Z.mul_nonneg_nonneg; lia).
+  rewrite lor_mul_pow2' by lia.
+  rewrite (Z.mod_small (V / 2 ^ (hi + 1))).
+  2:{ split; [apply Z.div_pos; lia|]. apply Z.div_lt_upper_bound; [lia|].
+      rewrite <- Z.pow_add_r by lia. replace (hi + 1 + (n - (hi + 1))) with n by lia. lia. }
+  change (bv_unsigned (BV _ V)) with V. change (bv_unsigned (BV _ X)) with X. lia.
+Qed.
+
+Lemma to_bits_unsigned l n : 0 <= l -> 0 <= n < 2 ^ l -> bv_unsigned (to_bits l n) = n.
+Proof.
+  intros Hl Hn. unfold to_bits, get_slice_int.
+  assert (E : forall z, z = n -> bv_unsigned (get_slice_int' l z 0) = n).
+  { intros z ->. unfold get_slice_int'.
+    destruct (sumbool_of_bool (l >=? 0)) as [e|e]; [|apply Z.geb_le in Hl; congruence].
+    cbv zeta. rewrite autocast_unsigned by lia.
+    rewrite subrange_vec_dec_unsigned by lia.
+    unfold mword_of_int, SailStdpp.MachineWord.MachineWord.Z_to_word. rewrite Z_to_bv_unsigned.
+    unfold bv_wrap, bv_modulus, SailStdpp.MachineWord.MachineWord.Z_idx.
+    rewrite Z2N.id by lia. rewrite Z.pow_0_r, Z.div_1_r.
+    replace (0 + l - 1 + 1) with l by lia. replace (0 + l - 1 - 0 + 1) with l by lia.
+    rewrite !Z.mod_small by lia. reflexivity. }
+  destruct n; apply E; reflexivity.
+Qed.
+
 (** Rewrite [@bv_unsigned k t] with the lemma instance [L], whose
     left-hand side is [@bv_unsigned k' t] for an index [k'] convertible
     to [k]. *)
@@ -146,43 +203,63 @@ Ltac lhs_index L :=
   | context [@bv_unsigned ?k' _ = _] => k'
   end.
 
+Ltac side_solve := first [ lia | reflexivity | vm_compute; reflexivity ].
+
 Ltac rw_bv_in H k t L :=
   let k' := lhs_index L in
   change (@bv_unsigned k t) with (@bv_unsigned k' t) in H;
-  rewrite L in H by lia.
+  rewrite L in H by side_solve.
 
 Ltac rw_bv k t L :=
   let k' := lhs_index L in
   change (@bv_unsigned k t) with (@bv_unsigned k' t);
-  rewrite L by lia.
+  rewrite L by side_solve.
 
 (** Unfold the Sail operators that occur in conditions into [Z]. *)
-Ltac bv_to_Z_in H :=
+(** Extension point for later files: [bv_lemma_extra t] returns a lemma
+    whose conclusion is an equation [@bv_unsigned _ t = _]. *)
+Ltac bv_lemma_extra t := fail.
+
+(** The [Z] value of a Sail bit-vector operation [t]: a lemma
+    [... -> @bv_unsigned k' t = e], with all implicit arguments taken
+    from [t], so that [t] occurs in it syntactically. *)
+Ltac bv_lemma t :=
+  lazymatch t with
+  | @subrange_vec_dec ?n ?v ?hi ?lo => constr:(@subrange_vec_dec_unsigned n v hi lo)
+  | @concat_vec ?a ?b ?x ?y => constr:(@concat_vec_unsigned a b x y)
+  | @zero_extend' ?n ?m ?x => constr:(@zero_extend'_unsigned n m x)
+  | to_bits ?l ?n => constr:(to_bits_unsigned l n)
+  | @autocast mword ?m ?n _ ?x => constr:(@autocast_unsigned m n x)
+  | @update_subrange_vec_dec ?n ?v ?hi ?lo ?x => constr:(@update_subrange_vec_dec_unsigned n v hi lo x)
+  | @access_vec_dec ?n ?x ?i => constr:(@access_vec_dec_unsigned n x i)
+  | @add_vec_int ?n ?x ?z => constr:(@add_vec_int_unsigned n x z)
+  | @add_vec ?n ?x ?y => constr:(@add_vec_unsigned n x y)
+  | @sub_vec ?n ?x ?y => constr:(@sub_vec_unsigned n x y)
+  | _ => bv_lemma_extra t
+  end.
+
+(** Rewrite the unsigned values of Sail bit-vector operations in the goal
+    into arithmetic on [Z]. *)
+Ltac bv_to_Z :=
   repeat first
-    [ progress cbn [bits_of_physaddr bits_of_virtaddr negb andb orb] in H
-    | match type of H with
-      | context [if ?c then _ else _] =>
+    [ progress cbn [bits_of_physaddr bits_of_virtaddr negb andb orb]
+    | match goal with
+      | |- context [if ?c then _ else _] =>
           is_closed_term c;
-          let v := eval vm_compute in c in change c with v in H; cbv iota in H
+          let v := eval vm_compute in c in change c with v; cbv iota
       end
     | progress unfold is_aligned_vaddr, is_aligned_paddr, zopz0zI_u, zopz0zK_u, zopz0zIzJ_u,
-        zopz0zKzJ_u, zopz0zJzJzK, range_subset, __id, not in H
-    | rewrite !uint_spec in H
-    | rewrite !eq_vec_spec in H
-    | rewrite !neq_vec_spec in H
-    | rewrite !bool_decide_eqb in H
-    | rewrite !access_vec_dec_unsigned in H by lia
-    | rewrite !add_vec_int_unsigned in H
-    | rewrite !add_vec_unsigned in H
-    | rewrite !sub_vec_unsigned in H
-    | match type of H with
-      | context [@bv_unsigned ?k (subrange_vec_dec ?v ?hi ?lo)] =>
-          rw_bv_in H k (subrange_vec_dec v hi lo) (subrange_vec_dec_unsigned v hi lo)
-      | context [@bv_unsigned ?k (concat_vec ?x ?y)] =>
-          rw_bv_in H k (concat_vec x y) (concat_vec_unsigned x y)
-      | context [@bv_unsigned ?k (zero_extend' ?m ?x)] =>
-          rw_bv_in H k (zero_extend' m x) (zero_extend'_unsigned m x)
+        zopz0zKzJ_u, zopz0zJzJzK, range_subset, __id, not, isRVC
+    | rewrite !uint_spec
+    | rewrite !eq_vec_spec
+    | rewrite !neq_vec_spec
+    | rewrite !bool_decide_eqb
+    | match goal with
+      | |- context [@bv_unsigned ?k ?t] =>
+          let L := bv_lemma t in rw_bv k t L
       end ].
+
+Ltac bv_to_Z_in H := revert H; bv_to_Z; intros H.
 
 (** Compute closed [bv_unsigned] subterms. *)
 Ltac bv_closed_in H :=
@@ -214,17 +291,35 @@ Ltac bool_to_prop :=
   | H : false = true |- _ => discriminate H
   end.
 
-Ltac bv_bounds :=
+(** Bring the size index of every [bv_unsigned] with a closed index to
+    normal form, so that [lia] sees one atom per bit vector. *)
+Ltac bv_norm_idx :=
   repeat match goal with
-  | |- context [bv_unsigned ?x] =>
+  | H : context [@bv_unsigned ?k ?x] |- _ =>
+      is_closed_term k; assert_fails (is_N_literal k);
+      let k' := eval vm_compute in k in change (@bv_unsigned k x) with (@bv_unsigned k' x) in *
+  | |- context [@bv_unsigned ?k ?x] =>
+      is_closed_term k; assert_fails (is_N_literal k);
+      let k' := eval vm_compute in k in change (@bv_unsigned k x) with (@bv_unsigned k' x) in *
+  end
+with is_N_literal k :=
+  lazymatch k with
+  | N0 => idtac
+  | Npos ?p => is_closed_term p; lazymatch p with context [_] => idtac end
+  end.
+
+Ltac bv_bounds :=
+  bv_norm_idx;
+  repeat match goal with
+  | |- context [@bv_unsigned ?k ?x] =>
       lazymatch goal with
-      | _ : 0 <= bv_unsigned x < _ |- _ => fail
-      | _ => pose proof (bv_unsigned_in_range _ x)
+      | _ : 0 <= @bv_unsigned k x < _ |- _ => fail
+      | _ => pose proof (bv_unsigned_in_range k x)
       end
-  | _ : context [bv_unsigned ?x] |- _ =>
+  | _ : context [@bv_unsigned ?k ?x] |- _ =>
       lazymatch goal with
-      | _ : 0 <= bv_unsigned x < _ |- _ => fail
-      | _ => pose proof (bv_unsigned_in_range _ x)
+      | _ : 0 <= @bv_unsigned k x < _ |- _ => fail
+      | _ => pose proof (bv_unsigned_in_range k x)
       end
   end.
 
@@ -237,10 +332,13 @@ Ltac Z_closed :=
       is_closed_term (a ^ b); let v := eval vm_compute in (a ^ b) in change (a ^ b) with v
   end.
 
+Ltac zsimpl := rewrite ?Z.mod_1_r, ?Z.div_0_l, ?Z.mul_1_r, ?Z.add_0_l, ?Z.add_0_r, ?Z.div_1_r,
+  ?Zmod_0_l, ?Z.mul_0_l in * by lia.
+
 Ltac bsolve_absurd H :=
   try unfold_matchers_in H;
   bv_to_Z_in H; bv_closed_in H; bv_bounds; bool_to_prop;
-  unfold bv_wrap, bv_modulus in *; cbn [Z.of_N Z.to_N] in *; Z_closed;
+  unfold bv_wrap, bv_modulus in *; cbn [Z.of_N Z.to_N] in *; Z_closed; zsimpl;
   lia.
 
 (** Prove [b = c] for a constructor [c] of [bool]. *)
@@ -256,20 +354,6 @@ Ltac bsolve :=
 
 (** Prove an equation or inequation of unsigned values of bit vectors. *)
 Ltac zsolve :=
-  repeat first
-    [ progress cbn [bits_of_physaddr bits_of_virtaddr] 
-    | rewrite !uint_spec
-    | rewrite !access_vec_dec_unsigned by lia
-    | rewrite !add_vec_int_unsigned
-    | rewrite !add_vec_unsigned
-    | rewrite !sub_vec_unsigned
-    | match goal with
-      | |- context [@bv_unsigned ?k (subrange_vec_dec ?v ?hi ?lo)] =>
-          rw_bv k (subrange_vec_dec v hi lo) (subrange_vec_dec_unsigned v hi lo)
-      | |- context [@bv_unsigned ?k (concat_vec ?x ?y)] =>
-          rw_bv k (concat_vec x y) (concat_vec_unsigned x y)
-      | |- context [@bv_unsigned ?k (zero_extend' ?m ?x)] =>
-          rw_bv k (zero_extend' m x) (zero_extend'_unsigned m x)
-      end ];
-  bv_bounds; unfold bv_wrap, bv_modulus in *; cbn [Z.of_N Z.to_N] in *; Z_closed;
+  bv_to_Z;
+  bv_bounds; unfold bv_wrap, bv_modulus in *; cbn [Z.of_N Z.to_N] in *; Z_closed; zsimpl;
   lia.
