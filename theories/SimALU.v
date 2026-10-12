@@ -77,3 +77,46 @@ Lemma sim_XOR d r1 r2 :
 Proof. rr d r1 r2 XOR decode_XOR bvw_xor. Qed.
 
 End Sims2.
+
+Section Sims3.
+
+Variables (base size : mword 64) (s : SailState).
+Hypothesis Hinv : SailInv base size s.
+Hypothesis Hal : bv_unsigned (rd (regs s) PC) mod 4 = 0.
+Hypothesis Hin : in_region base size (rd (regs s) PC) 4.
+
+Local Ltac ri d r1 i op dec rvsail :=
+  intros Hw; enc_simpl2 Hw; reg_ranges;
+  pose proof (zw_range i ltac:(lia)); cbn [Z.of_N] in *;
+  pose proof Hinv as (_ & Hag & _);
+  apply (sailsim_alu base size s Hinv Hal Hin _
+           (ITYPE (Z_to_bv 12 (zw i), Regidx (Z_to_bv 5 (zw r1)), Regidx (Z_to_bv 5 (zw d)), op))
+           d (iop_val op (gpr (regs s) (zw r1)) (Z_to_bv 12 (zw i))));
+  [ rewrite Hw; lia
+  | intros w Hw'; apply dec; first [ exact Hag | assumption | (unfold reg5; lia) | (unfold encI; lia) | lia ]
+  | rewrite exec_ITYPE, !uint_reg, !gpr_step_pre; reflexivity
+  | cbv [P.aexec]; cbn [sobs P.aregs P.apc P.amem]; rewrite !rreg_sgpr, !sgpr_gpr; cbn [iop_val];
+    rewrite rvsail, bvw_sign_extend12; reflexivity ].
+
+Lemma sim_ADDI d r1 i :
+  mem_val (mem s) (rd (regs s) PC) 4 = zw (R.Encode (R.ArithI (R.ADDI (d, r1, i)))) ->
+  SailSim base size (R.ArithI (R.ADDI (d, r1, i))) s.
+Proof. ri d r1 i ADDI decode_ADDI bvw_add_vec. Qed.
+
+Lemma sim_ANDI d r1 i :
+  mem_val (mem s) (rd (regs s) PC) 4 = zw (R.Encode (R.ArithI (R.ANDI (d, r1, i)))) ->
+  SailSim base size (R.ArithI (R.ANDI (d, r1, i))) s.
+Proof. ri d r1 i ANDI decode_ANDI bvw_and. Qed.
+
+Lemma sim_XORI d r1 i :
+  mem_val (mem s) (rd (regs s) PC) 4 = zw (R.Encode (R.ArithI (R.XORI (d, r1, i)))) ->
+  SailSim base size (R.ArithI (R.XORI (d, r1, i))) s.
+Proof. ri d r1 i XORI decode_XORI bvw_xor. Qed.
+
+Lemma sim_ORI d r1 i :
+  mem_val (mem s) (rd (regs s) PC) 4 = zw (R.Encode (R.ArithI (R.ORI (d, r1, i)))) ->
+  ~ (zw d = 0 /\ (zw i mod 32 = 0 \/ zw i mod 32 = 1 \/ zw i mod 32 = 3)) ->
+  SailSim base size (R.ArithI (R.ORI (d, r1, i))) s.
+Proof. intros Hw Hh. revert Hw. ri d r1 i ORI decode_ORI bvw_or. Qed.
+
+End Sims3.
