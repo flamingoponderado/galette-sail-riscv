@@ -24,11 +24,6 @@ Definition step_post (s1 : SailState) : SailState :=
 Definition step_pre (s : SailState) : SailState :=
   mkSailState (upd_reg (regs s) nextPC (add_vec_int (rd (regs s) PC) 4)) (mem s).
 
-Ltac ev_val_agree :=
-  match goal with
-  | H : agree ctrl cfg (regs ?s) |- context [rd (regs ?s) ?r] => rewrite <- (H r eq_refl)
-  end.
-
 Section TryStep.
 
 Variables (s : SailState) (w : mword 32) (ast : instruction) (s1 : SailState).
@@ -40,8 +35,6 @@ Hypothesis Hinv1 : agree ctrl cfg (regs s1).
 
 Theorem try_step_retire : runX (try_step 0 false) s = Some (inl false, step_post s1).
 Proof.
-  Ltac ev_val_hook ::= ev_val_agree.
-  Ltac ev_hook ::= first [ ev_ctrl | apply Hfetch | apply Hdecode | apply Hexec ].
   ev.
 Qed.
 

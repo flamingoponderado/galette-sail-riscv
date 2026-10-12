@@ -118,3 +118,26 @@ Proof. apply rX_spec, uint_bv5. Qed.
 Lemma wX_bits_spec i v s :
   runX (wX_bits (Regidx i) v) s = Some (inl tt, mkSailState (set_gpr (regs s) (uint i) v) (mem s)).
 Proof. apply wX_spec, uint_bv5. Qed.
+
+(** ** Default hooks of the evaluator *)
+
+Ltac ev_val_agree :=
+  match goal with
+  | H : agree ctrl cfg (regs ?s) |- context [rd (regs ?s) ?r] => rewrite <- (H r eq_refl)
+  end.
+
+Ltac ev_gpr :=
+  lazymatch goal with
+  | |- runX (rX_bits (Regidx ?i)) ?s = _ => apply rX_bits_spec
+  | |- runX (wX_bits (Regidx ?i) ?v) ?s = _ => apply wX_bits_spec
+  end.
+
+(** A call whose result is a hypothesis. *)
+Ltac ev_hyp :=
+  match goal with
+  | H : runX ?P ?s = _ |- runX ?P ?s = _ => apply H
+  end.
+
+Ltac solve_agree_extra ::= apply agree_set_gpr.
+Ltac ev_val_hook ::= ev_val_agree.
+Ltac ev_hook ::= first [ ev_ctrl | ev_gpr | ev_hyp ].

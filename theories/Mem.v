@@ -54,6 +54,8 @@ Ltac simpl_req :=
   | |- context [f_bitvector_64 ?rf ?r] => change (f_bitvector_64 rf r) with (rd rf (R_bitvector_64 r))
   end.
 
+Ltac ev_case ::= ev_case_pma.
+
 Section Fetch.
 
 Variables (base size : mword 64) (s : SailState).
@@ -68,9 +70,6 @@ Hypothesis Hrvc : mem_val (mem s) (rd (regs s) PC) 4 mod 4 = 3.
 Lemma fetch_spec : exists w,
   runX (fetch tt) s = Some (inl (F_Base w), s) /\ bv_unsigned w = mem_val (mem s) (rd (regs s) PC) 4.
 Proof.
-  Ltac ev_val_hook ::= ev_val_agree.
-  Ltac ev_hook ::= ev_ctrl.
-  Ltac ev_case ::= ev_case_pma.
   pose proof Hreg as (Hr1 & Hr2 & Hr3). pose proof Hin as (Hi1 & Hi2).
   eexists; split.
   - ev. simpl_req.

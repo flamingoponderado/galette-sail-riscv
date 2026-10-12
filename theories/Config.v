@@ -93,12 +93,14 @@ Qed.
 
 (** Prove [agree ctrl cfg (regs s)] for a state obtained by register
     writes from a state for which it is a hypothesis. *)
+Ltac solve_agree_extra := fail.
 Ltac solve_agree :=
   cbn [regs mem];
-  repeat first
+  solve [ repeat first
     [ assumption
     | apply agree_upd_data; [|reflexivity]
-    | apply agree_upd_ctrl; [|vm_compute; reflexivity] ].
+    | apply agree_upd_ctrl; [|vm_compute; reflexivity]
+    | solve_agree_extra ] ].
 
 (** Control-only computations: evaluate on [cfg] by computation, and
     transfer to the symbolic state with [runS_frame]. *)
