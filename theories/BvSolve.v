@@ -358,3 +358,17 @@ Ltac zsolve :=
   bv_to_Z;
   bv_bounds; unfold bv_wrap, bv_modulus in *; cbn [Z.of_N Z.to_N] in *; Z_closed; zsimpl;
   lia.
+
+(** Replace every bit-vector variable by its value: [x] becomes [BV _ X]
+    and [bv_unsigned x] becomes the integer [X]. *)
+Ltac bv_destruct :=
+  repeat match goal with
+  | x : bv _ |- _ =>
+      let X := fresh "X" in let Hw := fresh "Hw" in destruct x as [X Hw]
+  | x : mword _ |- _ =>
+      let X := fresh "X" in let Hw := fresh "Hw" in destruct x as [X Hw]
+  end;
+  repeat match goal with
+  | |- context [bv_unsigned (BV _ ?z)] => change (bv_unsigned (BV _ z)) with z
+  | H : context [bv_unsigned (BV _ ?z)] |- _ => change (bv_unsigned (BV _ z)) with z in H
+  end.
