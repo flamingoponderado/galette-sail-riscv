@@ -25,3 +25,18 @@ Proof.
   unfold R.Rtype. rewrite !zw_concat by lia. cbn [Z.of_N]. zw_bounds.
   rewrite !(Z.mod_small _ (2 ^ _)); lia.
 Qed.
+
+Lemma zw_Itype o f3 rd rs1 imm :
+  zw (R.Itype (o, f3, rd, rs1, imm)) =
+  zw o + 2 ^ 7 * zw rd + 2 ^ 12 * zw f3 + 2 ^ 15 * zw rs1 + 2 ^ 20 * zw imm.
+Proof.
+  unfold R.Itype. rewrite !zw_concat by lia. cbn [Z.of_N]. zw_bounds.
+  rewrite !(Z.mod_small _ (2 ^ _)); lia.
+Qed.
+
+Lemma zw_Utype o rd imm :
+  zw (R.Utype (o, rd, imm)) = zw o + 2 ^ 7 * zw rd + 2 ^ 12 * zw imm.
+Proof.
+  unfold R.Utype. rewrite !zw_concat by lia. cbn [Z.of_N]. zw_bounds.
+  rewrite !(Z.mod_small _ (2 ^ _)); lia.
+Qed.

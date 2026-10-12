@@ -211,3 +211,15 @@ Proof.
   rewrite add_vec_int_unsigned. unfold bv_wrap, bv_modulus. cbn [Z.of_N Z.to_N].
   rewrite Z2N.id by exact Hz. rewrite Zplus_mod_idemp_r. reflexivity.
 Qed.
+
+Lemma zw_sub {n : N} (x y : W.word n) : (1 <= n)%N ->
+  zw (W.word_sub x y) = (zw x - zw y) mod 2 ^ Z.of_N n.
+Proof.
+  intros H. unfold W.word_sub, W.word_2comp. rewrite zw_add by exact H. rewrite zw_n2w by exact H.
+  pose proof (zw_range y H) as Hy. unfold zw in *.
+  rewrite N2Z.inj_sub by (apply N.lt_le_incl, W.w2n_lt). rewrite dimword_pos by exact H.
+  rewrite Zplus_mod_idemp_r.
+  replace (Z.of_N (W.w2n x) + (2 ^ Z.of_N n - Z.of_N (W.w2n y)))
+    with (Z.of_N (W.w2n x) - Z.of_N (W.w2n y) + 1 * 2 ^ Z.of_N n) by lia.
+  apply Z.mod_add. apply Z.pow_nonzero; lia.
+Qed.
